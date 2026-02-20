@@ -1,0 +1,16 @@
+
+<suite name="Selenium Cookies Suite" verbose="1">
+
+    <test name="Run Selenium Tests">
+        <classes>
+
+            <!-- Cookies Test -->
+            <class name="com.trainingCookies.demo.CookiesDemoTest"/>
+
+            <!-- Capabilities Test -->
+            <class name="com.trainingCookies.demo.capabilitiesDemoTest"/>
+
+        </classes>
+    </test>
+
+</suite>
