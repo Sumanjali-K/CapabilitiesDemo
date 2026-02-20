@@ -22,7 +22,7 @@ public class capabilitiesDemoTest {
 	@Test
 	public void localCapabilities_demo() {
 		ChromeOptions options=new ChromeOptions();
-		options.addArguments("---start-maximized");
+		options.addArguments("--start-maximized");
 		//options.setAcceptInsecureCerts(true);
 		
 		WebDriver driver= new ChromeDriver(options);
