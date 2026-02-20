@@ -26,6 +26,7 @@ public class CookiesDemoTest {
 	public void teardown() {
 		if(driver !=null){
 			driver.quit();
+		}
 	}
 	
 	@Test
