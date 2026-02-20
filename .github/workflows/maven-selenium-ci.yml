@@ -1,0 +1,67 @@
+name: Maven + Selenium (TestNG)
+
+on:
+  push:
+    branches: [ main, master ]   # adjust if your default branch is different
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:             # lets you run it manually from Actions tab
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CI: true                   # useful if you later toggle headless in code based on CI
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'     # change to 8/11/21 if needed
+          cache: maven
+
+      # Optional: cache Selenium Manager's downloaded drivers
+      - name: Cache Selenium Manager drivers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/selenium
+          key: ${{ runner.os }}-selenium-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-selenium-
+
+      - name: Install Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Show Chrome version
+        run: |
+          chrome --version || google-chrome --version || chromium --version
+          which chrome || which google-chrome || which chromium || true
+
+      - name: Install Xvfb (virtual display)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Build & run tests under Xvfb (Maven + TestNG)
+        run: |
+          xvfb-run -a mvn -B -DskipTests=false clean test
+
+      - name: Upload Surefire/Failsafe reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
