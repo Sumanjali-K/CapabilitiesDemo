@@ -2,14 +2,10 @@ name: Maven + Selenium (TestNG)
 
 on:
   push:
-    branches: [ main, master ]   # adjust if your default branch is different
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:             # lets you run it manually from Actions tab
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 jobs:
   test:
@@ -17,51 +13,63 @@ jobs:
     permissions:
       contents: read
     env:
-      CI: true                   # useful if you later toggle headless in code based on CI
+      CI: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Temurin JDK
+      - name: Show project structure
+        run: |
+          echo "Current Directory:"
+          pwd
+          echo "Files:"
+          ls -R .
+
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'     # change to 8/11/21 if needed
+          java-version: '17'
           cache: maven
 
-      # Optional: cache Selenium Manager's downloaded drivers
       - name: Cache Selenium Manager drivers
         uses: actions/cache@v4
         with:
           path: ~/.cache/selenium
           key: ${{ runner.os }}-selenium-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-selenium-
 
       - name: Install Google Chrome
         uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
 
       - name: Show Chrome version
-        run: |
-          chrome --version || google-chrome --version || chromium --version
-          which chrome || which google-chrome || which chromium || true
+        run: google-chrome --version || chrome --version || chromium --version
 
       - name: Install Xvfb (virtual display)
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
 
-      - name: Build & run tests under Xvfb (Maven + TestNG)
+      - name: Run Maven tests under Xvfb
         run: |
-          xvfb-run -a mvn -B -DskipTests=false clean test
+          xvfb-run -a mvn -B -e --fail-at-end \
+            -DskipTests=false \
+            -Dsurefire.printSummary=true \
+            clean test
 
-      - name: Upload Surefire/Failsafe reports
+      - name: Search for test reports
+        if: always()
+        run: |
+          echo "Searching for surefire reports..."
+          find . -type d -name "surefire-reports" -print
+          find . -type f -path "*/surefire-reports/*" -print
+
+      - name: Upload Test Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: |
             **/target/surefire-reports/**
-            **/target/failsafe-reports/**
+            **/surefire-reports/**
+          if-no-files-found: warn
