@@ -24,7 +24,8 @@ public class CookiesDemoTest {
 	
 	@AfterMethod(alwaysRun=true)
 	public void teardown() {
-		
+		if(driver !=null){
+			driver.quit();
 	}
 	
 	@Test
