@@ -1,0 +1,93 @@
+name: Maven + Selenium (TestNG via testng.xml)
+
+on:
+  push:
+    branches: [ main, master ]    # adjust to your repo's default branch
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:               # lets you run it manually from Actions
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CI: true    # can be used in code to toggle headless if you add it later
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show project structure (quick debug)
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "---- Tree (depth 3) ----"
+          find . -maxdepth 3 -type d -print
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Cache Selenium Manager downloads (ChromeDriver, etc.)
+      - name: Cache Selenium Manager drivers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/selenium
+          key: ${{ runner.os }}-selenium-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-selenium-
+
+      - name: Install Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Show Chrome version
+        run: |
+          chrome --version || google-chrome --version || chromium --version
+          which chrome || which google-chrome || which chromium || true
+
+      - name: Install Xvfb (virtual display for non-headless tests)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      # IMPORTANT: We explicitly run the TestNG suite defined in testng.xml
+      - name: Build & run TestNG suite under Xvfb
+        run: |
+          xvfb-run -a mvn -B -e --fail-at-end \
+            -DskipTests=false \
+            -Dsurefire.printSummary=true \
+            -Dsurefire.useFile=true \
+            -DsuiteXmlFile=testng.xml \
+            clean test
+
+      # Helpful: print where reports are and list them
+      - name: Locate Surefire/Failsafe reports
+        if: always()
+        run: |
+          echo "Searching for surefire/failsafe report directories..."
+          find . -type d \( -name "surefire-reports" -o -name "failsafe-reports" \) -print || true
+          echo "List report files (if any):"
+          find . -type f \( -path "*/surefire-reports/*" -o -path "*/failsafe-reports/*" \) -print || true
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+            **/surefire-reports/**
+            **/failsafe-reports/**
+          if-no-files-found: warn
+          retention-days: 7
